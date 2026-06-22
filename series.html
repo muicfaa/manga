@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Series — MangaShelf</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<header class="site-header">
+  <a href="index.html" class="logo">
+    <span class="logo-mark">▲</span>
+    <span class="logo-text">MangaShelf</span>
+  </a>
+  <nav class="breadcrumb" id="breadcrumb"></nav>
+</header>
+
+<main>
+  <div class="series-hero" id="series-hero"></div>
+  <section class="section">
+    <h2 class="section-title">Chapters</h2>
+    <div class="chapter-list" id="chapter-list"></div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <p>Made with ♥ — <a href="https://github.com" target="_blank">GitHub</a></p>
+</footer>
+
+<script src="manga.config.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const seriesId = params.get("id");
+  const series = MANGA_DATA.find(s => s.id === seriesId);
+
+  if (!series) {
+    document.body.innerHTML = `<div class="error-state"><h2>Series not found.</h2><a href="index.html">← Back home</a></div>`;
+  } else {
+    document.title = `${series.title} — MangaShelf`;
+
+    // Breadcrumb
+    document.getElementById("breadcrumb").innerHTML = `
+      <a href="index.html">Home</a>
+      <span class="bc-sep">›</span>
+      <span>${series.title}</span>
+    `;
+
+    // Hero
+    document.getElementById("series-hero").innerHTML = `
+      <div class="hero-cover">
+        <img src="${series.cover}" alt="${series.title}" onerror="this.src='placeholder.svg'"/>
+      </div>
+      <div class="hero-info">
+        <h1>${series.title}</h1>
+        ${series.genres ? `<div class="series-genres">${series.genres.map(g=>`<span class="genre-tag">${g}</span>`).join("")}</div>` : ""}
+        <p class="series-desc">${series.description || ""}</p>
+        <a class="btn-primary" href="read.html?series=${series.id}&chapter=${series.chapters[0].id}&page=0">Start Reading →</a>
+      </div>
+    `;
+
+    // Chapter list (newest first)
+    const sorted = [...series.chapters].sort((a,b) => new Date(b.date) - new Date(a.date));
+    const list = document.getElementById("chapter-list");
+    sorted.forEach(ch => {
+      const item = document.createElement("a");
+      item.className = "chapter-item";
+      item.href = `read.html?series=${series.id}&chapter=${ch.id}&page=0`;
+      const d = new Date(ch.date);
+      const dateStr = d.toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" });
+      item.innerHTML = `
+        <div class="ch-thumb">
+          <img src="${ch.thumbnail}" alt="${ch.title}" loading="lazy" onerror="this.src='placeholder.svg'"/>
+        </div>
+        <div class="ch-info">
+          <span class="ch-title">${ch.title}</span>
+          ${ch.subtitle ? `<span class="ch-sub">${ch.subtitle}</span>` : ""}
+        </div>
+        <div class="ch-meta">
+          <span class="ch-date">${dateStr}</span>
+          <span class="ch-pages">${ch.pages.length}p</span>
+        </div>
+      `;
+      list.appendChild(item);
+    });
+  }
+</script>
+</body>
+</html>

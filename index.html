@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MangaShelf</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<header class="site-header">
+  <a href="index.html" class="logo">
+    <span class="logo-mark">▲</span>
+    <span class="logo-text">MangaShelf</span>
+  </a>
+</header>
+
+<main>
+
+  <!-- RECENT UPLOADS -->
+  <section class="section">
+    <h2 class="section-title">Recent Uploads</h2>
+    <div class="recent-grid" id="recent-grid"></div>
+  </section>
+
+  <!-- ALL SERIES -->
+  <section class="section">
+    <h2 class="section-title">Series</h2>
+    <div class="series-grid" id="series-grid"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <p>Made with ♥ — <a href="https://github.com" target="_blank">GitHub</a></p>
+</footer>
+
+<script src="manga.config.js"></script>
+<script>
+  // ── RECENT: collect latest chapter from each series, sort by date ──
+  const recents = MANGA_DATA.flatMap(series => {
+    const sorted = [...series.chapters].sort((a,b) => new Date(b.date) - new Date(a.date));
+    return sorted.slice(0, 2).map(ch => ({ series, chapter: ch }));
+  }).sort((a,b) => new Date(b.chapter.date) - new Date(a.chapter.date)).slice(0, 8);
+
+  const recentGrid = document.getElementById("recent-grid");
+  recents.forEach(({ series, chapter }) => {
+    const card = document.createElement("a");
+    card.className = "recent-card";
+    card.href = `read.html?series=${series.id}&chapter=${chapter.id}&page=0`;
+    card.innerHTML = `
+      <div class="recent-thumb">
+        <img src="${chapter.thumbnail}" alt="${chapter.title}" loading="lazy" onerror="this.src='placeholder.svg'"/>
+        <div class="recent-badge">${chapter.title}</div>
+      </div>
+      <div class="recent-info">
+        <span class="recent-series">${series.title}</span>
+        <span class="recent-sub">${chapter.subtitle || ""}</span>
+      </div>
+    `;
+    recentGrid.appendChild(card);
+  });
+
+  // ── SERIES GRID ──
+  const seriesGrid = document.getElementById("series-grid");
+  MANGA_DATA.forEach(series => {
+    const latestCh = [...series.chapters].sort((a,b) => new Date(b.date) - new Date(a.date))[0];
+    const card = document.createElement("a");
+    card.className = "series-card";
+    card.href = `series.html?id=${series.id}`;
+    card.innerHTML = `
+      <div class="series-cover">
+        <img src="${series.cover}" alt="${series.title}" loading="lazy" onerror="this.src='placeholder.svg'"/>
+      </div>
+      <div class="series-info">
+        <h3 class="series-title">${series.title}</h3>
+        <span class="series-meta">${series.chapters.length} chapters</span>
+        ${series.genres ? `<div class="series-genres">${series.genres.map(g=>`<span class="genre-tag">${g}</span>`).join("")}</div>` : ""}
+        <span class="series-latest">Latest: ${latestCh.title}</span>
+      </div>
+    `;
+    seriesGrid.appendChild(card);
+  });
+</script>
+</body>
+</html>

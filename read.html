@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reading — MangaShelf</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body class="reader-body">
+
+<header class="reader-header" id="reader-header">
+  <a href="index.html" class="logo logo-sm">
+    <span class="logo-mark">▲</span>
+  </a>
+  <nav class="breadcrumb" id="breadcrumb"></nav>
+  <div class="reader-controls">
+    <button class="btn-icon" id="btn-toc" title="Chapter list">☰</button>
+  </div>
+</header>
+
+<!-- Chapter TOC drawer -->
+<div class="toc-drawer" id="toc-drawer">
+  <div class="toc-header">
+    <span id="toc-series-title"></span>
+    <button class="btn-icon" id="btn-toc-close">✕</button>
+  </div>
+  <div class="toc-list" id="toc-list"></div>
+</div>
+<div class="toc-overlay" id="toc-overlay"></div>
+
+<main class="reader-main">
+
+  <!-- Page image -->
+  <div class="page-container" id="page-container">
+    <img class="manga-page" id="manga-page" src="" alt="Page" draggable="false"/>
+    <!-- Invisible click zones: left=prev, right=next -->
+    <div class="click-zone click-left"  id="zone-left"></div>
+    <div class="click-zone click-right" id="zone-right"></div>
+  </div>
+
+  <!-- Bottom nav -->
+  <div class="reader-nav" id="reader-nav">
+    <button class="nav-btn" id="btn-prev">← Prev</button>
+    <div class="nav-center">
+      <span class="chapter-label" id="chapter-label"></span>
+    </div>
+    <button class="nav-btn" id="btn-next">Next →</button>
+  </div>
+
+</main>
+
+<!-- Chapter-end screen -->
+<div class="end-screen hidden" id="end-screen">
+  <div class="end-card">
+    <div class="end-icon">✓</div>
+    <h2 class="end-title" id="end-title">Chapter Complete!</h2>
+    <p class="end-sub" id="end-sub"></p>
+    <div class="end-actions">
+      <button class="btn-secondary" id="end-retry">Read again</button>
+      <a class="btn-primary" id="end-next-chapter" href="#">Next Chapter →</a>
+      <a class="btn-ghost" id="end-series" href="#">Back to series</a>
+    </div>
+  </div>
+</div>
+
+<script src="manga.config.js"></script>
+<script>
+// ── State ────────────────────────────────────────────────────
+const params  = new URLSearchParams(location.search);
+let seriesId  = params.get("series");
+let chapterId = params.get("chapter");
+let pageIndex = parseInt(params.get("page") || "0", 10);
+
+const series  = MANGA_DATA.find(s => s.id === seriesId);
+if (!series) { document.body.innerHTML = `<div class="error-state"><h2>Not found.</h2><a href="index.html">Home</a></div>`; }
+
+const allChapters = series.chapters; // original order (oldest first assumed)
+let chapter = allChapters.find(c => c.id === chapterId);
+if (!chapter) chapter = allChapters[0];
+
+// ── DOM refs ─────────────────────────────────────────────────
+const img         = document.getElementById("manga-page");
+const pageContainer = document.getElementById("page-container");
+const btnPrev     = document.getElementById("btn-prev");
+const btnNext     = document.getElementById("btn-next");
+const chLabel     = document.getElementById("chapter-label");
+const endScreen   = document.getElementById("end-screen");
+const readerNav   = document.getElementById("reader-nav");
+const zoneLeft    = document.getElementById("zone-left");
+const zoneRight   = document.getElementById("zone-right");
+
+// ── Render ───────────────────────────────────────────────────
+function getPageSrc(ch, idx) {
+  return `${IMAGE_BASE}/${ch.folder}/${ch.pages[idx]}`;
+}
+
+function updateURL() {
+  const url = `read.html?series=${series.id}&chapter=${chapter.id}&page=${pageIndex}`;
+  history.replaceState({}, "", url);
+}
+
+function render() {
+  endScreen.classList.add("hidden");
+  pageContainer.style.display = "";
+  readerNav.style.display = "";
+
+  img.src = getPageSrc(chapter, pageIndex);
+  img.alt = `${chapter.title} — page ${pageIndex + 1}`;
+
+  chLabel.textContent = `${chapter.title}`;
+
+  // Disable prev on first page of first chapter
+  const isFirstPage = pageIndex === 0;
+  const chIdx = allChapters.indexOf(chapter);
+  btnPrev.disabled = isFirstPage && chIdx === 0;
+
+  // Hide next on last page (we show end screen instead)
+  btnNext.textContent = pageIndex < chapter.pages.length - 1 ? "Next →" : "Finish";
+
+  // Breadcrumb
+  document.getElementById("breadcrumb").innerHTML = `
+    <a href="index.html">Home</a>
+    <span class="bc-sep">›</span>
+    <a href="series.html?id=${series.id}">${series.title}</a>
+    <span class="bc-sep">›</span>
+    <span>${chapter.title}</span>
+  `;
+
+  document.title = `${chapter.title} — ${series.title}`;
+  updateURL();
+}
+
+function goNext() {
+  if (pageIndex < chapter.pages.length - 1) {
+    pageIndex++;
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } else {
+    showEndScreen();
+  }
+}
+
+function goPrev() {
+  if (pageIndex > 0) {
+    pageIndex--;
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } else {
+    // Go to previous chapter's last page
+    const chIdx = allChapters.indexOf(chapter);
+    if (chIdx > 0) {
+      chapter = allChapters[chIdx - 1];
+      pageIndex = chapter.pages.length - 1;
+      render();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+}
+
+// ── End screen ───────────────────────────────────────────────
+function showEndScreen() {
+  pageContainer.style.display = "none";
+  readerNav.style.display = "none";
+  endScreen.classList.remove("hidden");
+
+  const chIdx = allChapters.indexOf(chapter);
+  const nextCh = allChapters[chIdx + 1];
+
+  document.getElementById("end-title").textContent = `${chapter.title} Complete!`;
+  document.getElementById("end-sub").textContent = chapter.subtitle || series.title;
+
+  const nextBtn = document.getElementById("end-next-chapter");
+  if (nextCh) {
+    nextBtn.href = `read.html?series=${series.id}&chapter=${nextCh.id}&page=0`;
+    nextBtn.style.display = "";
+    nextBtn.textContent = `${nextCh.title} →`;
+  } else {
+    nextBtn.style.display = "none";
+  }
+
+  document.getElementById("end-series").href = `series.html?id=${series.id}`;
+  document.getElementById("end-retry").onclick = () => {
+    pageIndex = 0;
+    render();
+  };
+}
+
+// ── TOC Drawer ───────────────────────────────────────────────
+const tocDrawer  = document.getElementById("toc-drawer");
+const tocOverlay = document.getElementById("toc-overlay");
+const tocList    = document.getElementById("toc-list");
+
+document.getElementById("toc-series-title").textContent = series.title;
+document.getElementById("btn-toc").onclick = openTOC;
+document.getElementById("btn-toc-close").onclick = closeTOC;
+tocOverlay.onclick = closeTOC;
+
+function openTOC() {
+  tocDrawer.classList.add("open");
+  tocOverlay.classList.add("open");
+  // build list
+  tocList.innerHTML = "";
+  allChapters.forEach(ch => {
+    const item = document.createElement("a");
+    item.className = "toc-item" + (ch.id === chapter.id ? " active" : "");
+    item.href = `read.html?series=${series.id}&chapter=${ch.id}&page=0`;
+    item.textContent = ch.title + (ch.subtitle ? ` — ${ch.subtitle}` : "");
+    tocList.appendChild(item);
+  });
+}
+
+function closeTOC() {
+  tocDrawer.classList.remove("open");
+  tocOverlay.classList.remove("open");
+}
+
+// ── Events ───────────────────────────────────────────────────
+btnNext.onclick = goNext;
+btnPrev.onclick = goPrev;
+zoneRight.onclick = goNext;
+zoneLeft.onclick  = goPrev;
+
+// Keyboard
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") { e.preventDefault(); goNext(); }
+  if (e.key === "ArrowLeft"  || e.key === "ArrowUp")  { e.preventDefault(); goPrev(); }
+  if (e.key === "Escape") closeTOC();
+});
+
+// Swipe
+let touchStartX = 0;
+document.addEventListener("touchstart", e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+document.addEventListener("touchend",   e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 50) dx < 0 ? goNext() : goPrev();
+}, { passive: true });
+
+// Init
+render();
+</script>
+</body>
+</html>
